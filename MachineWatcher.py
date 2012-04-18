@@ -18,11 +18,24 @@ def get_job_status():
         config.read(STATUS_FILE)
         print config.sections()
         try:
+            error = config.get("System","SysErrorString")
+        except ConfigParser.NoOptionError:
+            pass
+        except ConfigParser.NoSectionError:
+            pass
+        try:
             status = config.getint(JOB_NAME,'LoadDiscState0')
         except ConfigParser.NoOptionError:
             return -1
         except ConfigParser.NoSectionError:
             return 0
+        #If the status is 3 and the error is something, then the issue
+        #is that the trays are empty and not that it didn't accept the
+        #command. So, we return a different error code!
+        if (status == 3 or status == -1) and error == "Administrator attention: Input bin is empty":
+            print "TRAYS ARE EMPTY!"
+            time.sleep(5)
+            return 4
         return status
     except:
         print "IO Error, give me a bit"
