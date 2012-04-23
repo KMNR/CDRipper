@@ -1,0 +1,16 @@
+KMNR Auto CD Extractor Tool (Name Pending)
+Action Jackson <scj7t4@mst.edu>
+
+==What This Does==
+
+This software automates the operation of a Primera Bravo I. It is a python
+script which sends commands to Primera's PTBurnServer software in order to
+manipulate the robot, and uses an external program to rip and compress the
+audio contained on the disc.
+
+==Setup==
+
+This software is currently implemented to be run inside a virtual machine
+which has the PTBurnJobs folder provided by the PTBurnServer and a remote
+storage site mounted in different directories. This allows us to use ABCDE
+for audio extraction since it is the most automated solution we could find.
