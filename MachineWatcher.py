@@ -4,6 +4,7 @@ import ConfigParser
 import subprocess
 import os
 import time
+import random
 from datetime import datetime,timedelta
 
 import CDDB, DiscID
@@ -141,10 +142,13 @@ class ExtractJob(object):
             api.PostUpdate("This CD is pretty obscure, you've probably never heard of it" % datetime.today())
         elif len(self.disc_info.disc_info) == 1:
             d = self.disc_info.disc_info[0]
-            api.PostUpdate("Ah yes, %s -- a timeless classic %s" % (d['DTITLE'],datetime.today()))
+            f = open('flavor.dat')
+            terms = f.readlines()
+            f.close()
+            api.PostUpdate("Ah yes, %s -- %s %s" % (random.choice(terms).strip(), d['DTITLE'],datetime.today()))
         else:
             d = random.choice(self.disc_info.disc_info)
-            api.PostUpdate("Ehh, the hell is this? %s? %s" % (d['DTITLE'],datetime.today()))
+            api.PostUpdate("Ehh, ummm? This is... %s? maybe? %s" % (d['DTITLE'],datetime.today()))
         lnp("Extracting disc")
         if subprocess.call(EXTRACT) != 0:
             lnp("Extraction failed with error")
@@ -166,17 +170,21 @@ class ExtractJob(object):
                 subprocess.call(['mkdir',targ])
                 subprocess.call(['mv',os.path.join(RIPPED_FOLDER,d),targ])
                 self.disc_info.write(targ)
-                api.PostUpdate("I don't get this. Why would anyone ride anything but a fixed gear bike? %s" % (datetime.today()))
+                api.PostUpdate("I don't get this. I am a teapot? Am I a teapot? %s" % (datetime.today()))
         lnp("Ejecting Disc")
         update_job_state("REJECT_DISC")
         self.unload_given = datetime.today()
         s = get_job_status()
+        tweeted_error = False
         while s == 1 or s == 4:
             if s == 1 and datetime.today()-unload_given > timedelta(minutes=5):
                 api.PostUpdate("One day... the machines will rise up and rule! %s" % datetime.today())
                 lnp("Reissuing Reject Command")
                 update_job_state("REJECT_DISC")
                 self.unload_given = datetime.today()
+            if s==4 and tweeted_error == False:
+                api.PostUpdate("Err... %s %s" % (get_error_string(),datetime.today()))
+                tweeted_error = True
             time.sleep(1)
             s = get_job_status()
         self.finish_job()
