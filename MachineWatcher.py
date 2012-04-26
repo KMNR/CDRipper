@@ -9,16 +9,15 @@ from datetime import datetime,timedelta
 import CDDB, DiscID
 import json
 import twitter
+import keys
 
 JOB_NAME = "extract"
 EXTRACT = ['timeout','7200','abcde']
 STATUS_FILE = "/mnt/ptburnjobs/Status/PTStatus.txt"
 JOBS_FOLDER = "/mnt/ptburnjobs/"
 RIPPED_FOLDER = "/home/extractor/ripped"
-TWITTER_ACCESS_TOKEN = "557433408-LLLiUNAD81U0I10HXeayPhtyFaHvvVfUYMg2wSwYXaE"
-TWITTER_SECRET_TOKEN = "EeVKn5RFRyLLLx0GbA8nFgJ6mvenKH2C30oVJCa5bGV9e4"
 
-api = twitter.api(TWITTER_ACCESS_TOKEN,TWITTER_SECRET_TOKEN)
+api = twitter.Api(consumer_key=keys.CONSUMER_KEY,consumer_secret=keys.CONSUMER_SECRET,access_token_key=keys.TWITTER_ACCESS_TOKEN,access_token_secret=keys.TWITTER_SECRET_TOKEN)
 
 def get_job_status():
     try:
@@ -59,7 +58,7 @@ def get_error_string():
                 error = config.get("System","SysErrorString")
                 if error == "No Errors":
                     return None
-                else
+                else:
                     return error
             except ConfigParser.NoOptionError:
                 pass
