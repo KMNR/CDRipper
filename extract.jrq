@@ -1,0 +1,7 @@
+ClientID=KMNR Ripper
+JobID=RIP 25 CD's
+Importance=2
+Copies=1
+NotifyClient=Message
+CreateSubFolders=YES
+LoadUnloadOverride=YES
