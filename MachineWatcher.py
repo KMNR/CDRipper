@@ -4,6 +4,7 @@ import ConfigParser
 import subprocess
 import os
 import time
+import random
 from datetime import datetime,timedelta
 
 import CDDB, DiscID
@@ -180,12 +181,16 @@ class ExtractJob(object):
         update_job_state("REJECT_DISC")
         self.unload_given = datetime.today()
         s = get_job_status()
+        tweeted_error = False
         while s == 1 or s == 4:
             if s == 1 and datetime.today()-self.unload_given > timedelta(minutes=5):
                 tweet("One day... the machines will rise up and rule!")
                 lnp("Reissuing Reject Command")
                 update_job_state("REJECT_DISC")
                 self.unload_given = datetime.today()
+            if s==4 and tweeted_error == False:
+                api.PostUpdate("Err... %s %s" % (get_error_string(),datetime.today()))
+                tweeted_error = True
             time.sleep(1)
             s = get_job_status()
         self.finish_job()
