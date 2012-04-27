@@ -17,7 +17,8 @@ EXTRACT = ['timeout','7200','abcde']
 STATUS_FILE = "/mnt/ptburnjobs/Status/PTStatus.txt"
 JOBS_FOLDER = "/mnt/ptburnjobs/"
 RIPPED_FOLDER = "/home/extractor/ripped"
-
+RSYNC_TARGET = "office@cleveland.kmnr.org:/mnt/storage/tarp/Archive/"
+CDP_LOG = "/home/extractor/cdp.log"
 
 def get_job_status():
     try:
@@ -134,6 +135,7 @@ class ExtractJob(object):
         lnp("Requesting Job")
         subprocess.call(['rm',os.path.join(JOBS_FOLDER,'extract.ERR')])
         subprocess.call(['cp','extract.jrq',JOBS_FOLDER])
+        subprocess.call(['mkdir','-p',RIPPED_FOLDER])
         lnp("Registered Job")
         time.sleep(30)
         lnp("Watching For job state 1")
@@ -163,20 +165,36 @@ class ExtractJob(object):
             self.disc_info.write(target)
         dirs = os.listdir(RIPPED_FOLDER)
         ctime = int(time.time()) 
+        #Fix CDDB issues
         for d in dirs:
             if d.lower().find("unknown") != -1:
                 lnp("CDDB Missing!")
                 targ = os.path.join(RIPPED_FOLDER,"CDDBBAD-%s" % ctime)
                 subprocess.call(['mv',os.path.join(RIPPED_FOLDER,d),targ])
-                self.disc_info.write(targ)
                 tweet("So underground... I should put this on my tumblr")
             if d.lower().find("flac") != -1:
                 lnp("WEIRD LOOKUP!")
                 targ = os.path.join(RIPPED_FOLDER,"CDDBBAD-%s" % ctime)
                 subprocess.call(['mkdir',targ])
                 subprocess.call(['mv',os.path.join(RIPPED_FOLDER,d),targ])
-                self.disc_info.write(targ)
                 tweet("I don't get this. I am a teapot? AM I A TEAPOT?")
+        #Write the CDDB Data
+        p = RIPPED_FOLDER
+        while 1:
+            subdirs = [ d for d in os.listdir(p) if os.path.isdir(os.path.join(p,d)) ]
+            if len(subdirs) == 0:
+                break
+            p = os.path.join(p,subdirs[0])
+        self.disc_info.write(p)
+        #And the CD paranoia log
+        subprocess.call(['mv',CDP_LOG,p])
+        #Rsync the contents of the ripped folder to the remote storage
+        if subprocess.call(['rsync','-rv',os.path.join(RIPPED_FOLDER,"*"),RSYNC_TARGET]) != 0:
+            lnp("RSYNC Push Failed")
+            subprocess.call(['mv',RIPPED_FOLDER,"RSYNCFAIL-%s" % int(time.time())])
+        else:
+            lnp("Cleaning ripped folder")
+            subprocess.call(['rm','-rf',os.path.join(RIPPED_FOLDER,"*")])
         lnp("Ejecting Disc")
         update_job_state("REJECT_DISC")
         self.unload_given = datetime.today()
@@ -196,7 +214,6 @@ class ExtractJob(object):
         self.finish_job()
     def finish_job(self):
         lnp("Waiting for job to be marked as finished")
-        tweet("Could anything smell better than a fresh FLAC?")
         while not os.path.exists(os.path.join(JOBS_FOLDER,'extract.ERR')):
             time.sleep(1)    
 
