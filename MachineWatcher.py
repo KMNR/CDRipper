@@ -17,13 +17,11 @@ STATUS_FILE = "/mnt/ptburnjobs/Status/PTStatus.txt"
 JOBS_FOLDER = "/mnt/ptburnjobs/"
 RIPPED_FOLDER = "/home/extractor/ripped"
 
-api = twitter.Api(consumer_key=keys.CONSUMER_KEY,consumer_secret=keys.CONSUMER_SECRET,access_token_key=keys.TWITTER_ACCESS_TOKEN,access_token_secret=keys.TWITTER_SECRET_TOKEN)
 
 def get_job_status():
     try:
         config = ConfigParser.RawConfigParser()
         config.read(STATUS_FILE)
-        print config.sections()
         try:
             error = config.get("System","SysErrorString")
             if error != "No Errors":
@@ -53,7 +51,7 @@ def get_error_string():
         try:
             config = ConfigParser.RawConfigParser()
             config.read(STATUS_FILE)
-            print config.sections()
+            #print config.sections()
             try:
                 error = config.get("System","SysErrorString")
                 if error == "No Errors":
@@ -82,13 +80,25 @@ def lnp(msg):
     f = open('ripper.log','a')
     f.write(str(datetime.today())+": "+msg+"\n")
     f.close()
-    print msg
+    print str(datetime.today())+": "+msg
+
+def tweet(msg):
+    try:
+        api = twitter.Api(consumer_key=keys.CONSUMER_KEY,consumer_secret=keys.CONSUMER_SECRET,
+                      access_token_key=keys.TWITTER_ACCESS_TOKEN,access_token_secret=keys.TWITTER_SECRET_TOKEN)
+        h = hex(int(time.time()))
+        msg = str(msg)
+        msg = msg+" %s" % h
+        msg = msg[:139]
+        api.PostUpdate(msg)
+    except:
+        lnp("Tweeting: %s failed!" % msg)
 
 class DiscLookup(object):
     def __init__(self):
         self.good = True
-        cdrom = DiscID.open()
-        self.disc_id = DiscID(cdrom)
+        cdrom = DiscID.open("/dev/sr0")
+        self.disc_id = DiscID.disc_id(cdrom)
         self.disc_info = []
         (status,info) = CDDB.query(self.disc_id)
         if status == 200:
@@ -99,7 +109,7 @@ class DiscLookup(object):
             return
         for i in info:
             (status, read_info) = (None,None)
-            for i in range(3):
+            for j in range(3):
                 (status,read_info) = CDDB.read(i['category'],i['disc_id'])
                 if status != 210:
                     continue
@@ -124,26 +134,26 @@ class ExtractJob(object):
         subprocess.call(['rm',os.path.join(JOBS_FOLDER,'extract.ERR')])
         subprocess.call(['cp','extract.jrq',JOBS_FOLDER])
         lnp("Registered Job")
-        time.sleep(60)
+        time.sleep(30)
         lnp("Watching For job state 1")
         tweeted_error = False
         while get_job_status() != 1:
             if get_job_status() == 4 and tweeted_error == False:
-                api.PostUpdate("Oh no! %s %s" % (get_error_string(),datetime.today()))
+                tweet("Oh no! %s" % (get_error_string(),))
                 tweeted_error = True
             time.sleep(1)
         lnp("Found Job State 1")
         self.extract_disc()
-    def extract_disc():
+    def extract_disc(self):
         self.disc_info = DiscLookup()
         if len(self.disc_info.disc_info) == 0:
-            api.PostUpdate("This CD is pretty obscure, you've probably never heard of it" % datetime.today())
+            tweet("This CD is pretty obscure, you've probably never heard of it")
         elif len(self.disc_info.disc_info) == 1:
             d = self.disc_info.disc_info[0]
-            api.PostUpdate("Ah yes, %s -- a timeless classic %s" % (d['DTITLE'],datetime.today()))
+            tweet("Ah yes, %s -- a timeless classic" % (d['DTITLE'],))
         else:
             d = random.choice(self.disc_info.disc_info)
-            api.PostUpdate("Ehh, the hell is this? %s? %s" % (d['DTITLE'],datetime.today()))
+            tweet("Ehh, the hell is this? %s?" % (d['DTITLE'],))
         lnp("Extracting disc")
         if subprocess.call(EXTRACT) != 0:
             lnp("Extraction failed with error")
@@ -158,37 +168,37 @@ class ExtractJob(object):
                 targ = os.path.join(RIPPED_FOLDER,"CDDBBAD-%s" % ctime)
                 subprocess.call(['mv',os.path.join(RIPPED_FOLDER,d),targ])
                 self.disc_info.write(targ)
-                api.PostUpdate("So underground... I should put this on my instagram %s" % (datetime.today()))
+                tweet("So underground... I should put this on my tumblr")
             if d.lower().find("flac") != -1:
                 lnp("WEIRD LOOKUP!")
                 targ = os.path.join(RIPPED_FOLDER,"CDDBBAD-%s" % ctime)
                 subprocess.call(['mkdir',targ])
                 subprocess.call(['mv',os.path.join(RIPPED_FOLDER,d),targ])
                 self.disc_info.write(targ)
-                api.PostUpdate("I don't get this. Why would anyone ride anything but a fixed gear bike? %s" % (datetime.today()))
+                tweet("I don't get this. I am a teapot? AM I A TEAPOT?")
         lnp("Ejecting Disc")
         update_job_state("REJECT_DISC")
         self.unload_given = datetime.today()
         s = get_job_status()
         while s == 1 or s == 4:
-            if s == 1 and datetime.today()-unload_given > timedelta(minutes=5):
-                api.PostUpdate("One day... the machines will rise up and rule! %s" % datetime.today())
+            if s == 1 and datetime.today()-self.unload_given > timedelta(minutes=5):
+                tweet("One day... the machines will rise up and rule!")
                 lnp("Reissuing Reject Command")
                 update_job_state("REJECT_DISC")
                 self.unload_given = datetime.today()
             time.sleep(1)
             s = get_job_status()
         self.finish_job()
-    def finish_job():
+    def finish_job(self):
         lnp("Waiting for job to be marked as finished")
-        api.PostUpdate("Could anything smell better than a fresh FLAC? %s" % (datetime.today()))
+        tweet("Could anything smell better than a fresh FLAC?")
         while not os.path.exists(os.path.join(JOBS_FOLDER,'extract.ERR')):
             time.sleep(1)    
 
 def main():
     status = None
     jobbing = False
-    api.PostUpdate("Time to get to work! It's ripping time! "+str(datetime.today()))
+    tweet("Time to get to work! It's ripping time!")
     subprocess.call(['rm',os.path.join(JOBS_FOLDER,'extract.INP')])
     subprocess.call(['rm',STATUS_FILE])
     unload_given = None    
