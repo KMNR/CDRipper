@@ -13,12 +13,13 @@ import twitter
 import keys
 
 JOB_NAME = "extract"
-EXTRACT = ['timeout','7200','abcde']
+EXTRACT = ['timeout','7200','rrip_cli','-d']
 STATUS_FILE = "/mnt/ptburnjobs/Status/PTStatus.txt"
+#INCLUDE TRAILING SLASH
 JOBS_FOLDER = "/mnt/ptburnjobs/"
-RIPPED_FOLDER = "/home/extractor/ripped"
+RIPPED_FOLDER = "/home/extractor/ripped/"
 RSYNC_TARGET = "office@cleveland.kmnr.org:/mnt/storage/tarp/Archive/"
-CDP_LOG = "/home/extractor/cdp.log"
+CDP_LOG = "/home/extractor/cdparanoia.log"
 
 def get_job_status():
     try:
@@ -125,7 +126,14 @@ class DiscLookup(object):
         f.write(" ".join([ str(x) for x in self.disc_id ]))
         f.close()
         f = open(os.path.join(where,"cddbquery.dat"),'w')
-        f.write(json.dumps(self.disc_info,indent=4))
+        safe_info = []
+        for di in self.disc_info:
+            try:
+                json.dumps(di)
+                safe_info.append(di)
+            except:
+                print "Unicode problem encoding CDDB result"
+        f.write(json.dumps(safe_info,indent=4))
 
 class ExtractJob(object):
     def __init__(self):
@@ -148,7 +156,17 @@ class ExtractJob(object):
         lnp("Found Job State 1")
         self.extract_disc()
     def extract_disc(self):
-        self.disc_info = DiscLookup()
+        self.disc_info = None
+        for i in range(3):
+            try:
+                self.disc_info = DiscLookup()
+            except:
+                subprocess.call(['eject','-t'])
+                sleep(3)
+        if self.disc_info == None:
+            tweet("Man, what is up with this disc?")
+            lnp("Disc didn't present as Audio CD")
+            self.eject_disc()
         if len(self.disc_info.disc_info) == 0:
             tweet("This CD is pretty obscure, you've probably never heard of it")
         elif len(self.disc_info.disc_info) == 1:
@@ -160,7 +178,7 @@ class ExtractJob(object):
         lnp("Extracting disc")
         if subprocess.call(EXTRACT) != 0:
             lnp("Extraction failed with error")
-            target = "failures/FAIL-%s" % int(time.time())
+            target = os.path.join(RIPPED_FOLDER,"FAIL-%s" % int(time.time()))
             subprocess.call(["mkdir","-p",target])
             self.disc_info.write(target)
         dirs = os.listdir(RIPPED_FOLDER)
@@ -186,15 +204,16 @@ class ExtractJob(object):
                 break
             p = os.path.join(p,subdirs[0])
         self.disc_info.write(p)
-        #And the CD paranoia log
-        subprocess.call(['mv',CDP_LOG,p])
         #Rsync the contents of the ripped folder to the remote storage
-        if subprocess.call(['rsync','-rv',os.path.join(RIPPED_FOLDER,"*"),RSYNC_TARGET]) != 0:
+        if subprocess.call(['rsync','-rv',RIPPED_FOLDER,RSYNC_TARGET]) != 0:
             lnp("RSYNC Push Failed")
             subprocess.call(['mv',RIPPED_FOLDER,"RSYNCFAIL-%s" % int(time.time())])
         else:
             lnp("Cleaning ripped folder")
-            subprocess.call(['rm','-rf',os.path.join(RIPPED_FOLDER,"*")])
+            subprocess.call(['rm','-rf',RIPPED_FOLDER])
+        self.eject_disc()
+        self.finish_job()
+    def eject_disc(self):
         lnp("Ejecting Disc")
         update_job_state("REJECT_DISC")
         self.unload_given = datetime.today()
@@ -211,7 +230,7 @@ class ExtractJob(object):
                 tweeted_error = True
             time.sleep(1)
             s = get_job_status()
-        self.finish_job()
+
     def finish_job(self):
         lnp("Waiting for job to be marked as finished")
         while not os.path.exists(os.path.join(JOBS_FOLDER,'extract.ERR')):
