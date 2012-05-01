@@ -226,14 +226,18 @@ class ExtractJob(object):
                 update_job_state("REJECT_DISC")
                 self.unload_given = datetime.today()
             if s==4 and tweeted_error == False:
-                api.PostUpdate("Err... %s %s" % (get_error_string(),datetime.today()))
+                tweet("Err... %s" % (get_error_string()))
                 tweeted_error = True
             time.sleep(1)
             s = get_job_status()
 
     def finish_job(self):
+        tweeted_error = False
         lnp("Waiting for job to be marked as finished")
         while not os.path.exists(os.path.join(JOBS_FOLDER,'extract.ERR')):
+            if get_job_status() == 4 and tweeted_error == False:
+                tweet("Push My Buttons... %s" % (get_error_string()))
+                tweeted_error = True
             time.sleep(1)    
 
 def main():
