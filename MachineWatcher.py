@@ -161,12 +161,14 @@ class ExtractJob(object):
             try:
                 self.disc_info = DiscLookup()
             except:
+                lnp("Reissuing close on drive")
                 subprocess.call(['eject','-t'])
                 time.sleep(3)
         if self.disc_info == None:
             tweet("Man, what is up with this disc?")
             lnp("Disc didn't present as Audio CD")
             self.eject_disc()
+            self.finish_job()
         if len(self.disc_info.disc_info) == 0:
             tweet("This CD is pretty obscure, you've probably never heard of it")
         elif len(self.disc_info.disc_info) == 1:
