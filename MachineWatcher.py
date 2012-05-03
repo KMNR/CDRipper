@@ -200,12 +200,18 @@ class ExtractJob(object):
                 tweet("I don't get this. I am a teapot? AM I A TEAPOT?")
         #Write the CDDB Data
         p = RIPPED_FOLDER
+        bp = RIPPED_FOLDER
+        trail = [p]
         while 1:
             subdirs = [ d for d in os.listdir(p) if os.path.isdir(os.path.join(p,d)) ]
             if len(subdirs) == 0:
                 break
+            bp = p
             p = os.path.join(p,subdirs[0])
+            trail.append(subdirs[0])
         self.disc_info.write(p)
+        if trail[-1].find("temp_sr0") and bp != RIPPED_FOLDER:
+            subprocess.call(['mv',p,os.path.join(bp,"FAIL-%s" % int(time.time()))])
         #Rsync the contents of the ripped folder to the remote storage
         if subprocess.call(['rsync','-rv',RIPPED_FOLDER,RSYNC_TARGET]) != 0:
             lnp("RSYNC Push Failed")
