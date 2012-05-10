@@ -13,7 +13,7 @@ import twitter
 import keys
 
 JOB_NAME = "extract"
-EXTRACT = ['timeout','7200','rrip_cli','-d']
+EXTRACT = ['timeout','7200','abcde']
 STATUS_FILE = "/mnt/ptburnjobs/Status/PTStatus.txt"
 #INCLUDE TRAILING SLASH
 JOBS_FOLDER = "/mnt/ptburnjobs/"
@@ -21,10 +21,15 @@ RIPPED_FOLDER = "/home/extractor/ripped/"
 RSYNC_TARGET = "office@cleveland.kmnr.org:/mnt/storage/tarp/Archive/"
 CDP_LOG = "/home/extractor/cdparanoia.log"
 
+def localize_status_file():
+    subprocess.call(["cp",STATUS_FILE,"./status.dat"])
+    
+
 def get_job_status():
+    localize_status_file()
     try:
         config = ConfigParser.RawConfigParser()
-        config.read(STATUS_FILE)
+        config.read("./status.dat")
         try:
             error = config.get("System","SysErrorString")
             if error != "No Errors":
@@ -50,10 +55,11 @@ def get_job_status():
         return 0
 
 def get_error_string():
+    localize_status_file()
     while 1:
         try:
             config = ConfigParser.RawConfigParser()
-            config.read(STATUS_FILE)
+            config.read("./status.dat")
             #print config.sections()
             try:
                 error = config.get("System","SysErrorString")
@@ -178,7 +184,8 @@ class ExtractJob(object):
             d = random.choice(self.disc_info.disc_info)
             tweet("Ehh, the hell is this? %s?" % (d['DTITLE'],))
         lnp("Extracting disc")
-        if subprocess.call(EXTRACT) != 0:
+        abcde_log = open(CDP_LOG,'w')
+        if subprocess.call(EXTRACT,stderr=abcde_log) != 0:
             lnp("Extraction failed with error")
             target = os.path.join(RIPPED_FOLDER,"FAIL-%s" % int(time.time()))
             subprocess.call(["mkdir","-p",target])
@@ -209,6 +216,7 @@ class ExtractJob(object):
             bp = p
             p = os.path.join(p,subdirs[0])
             trail.append(subdirs[0])
+        subprocess.call(['mv',CDP_LOG,p])
         self.disc_info.write(p)
         if trail[-1].find("temp_sr0") and bp != RIPPED_FOLDER:
             subprocess.call(['mv',p,os.path.join(bp,"FAIL-%s" % int(time.time()))])
