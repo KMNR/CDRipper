@@ -13,7 +13,7 @@ import twitter
 import keys
 
 JOB_NAME = "extract"
-EXTRACT = ['timeout','7200','abcde']
+EXTRACT = ['abcde']
 STATUS_FILE = "/mnt/ptburnjobs/Status/PTStatus.txt"
 #INCLUDE TRAILING SLASH
 JOBS_FOLDER = "/mnt/ptburnjobs/"
@@ -168,13 +168,14 @@ class ExtractJob(object):
                 self.disc_info = DiscLookup()
             except:
                 lnp("Reissuing close on drive")
-                subprocess.call(['eject','-t'])
+                subprocess.call(['eject','-t','/dev/sr0'])
                 time.sleep(3)
         if self.disc_info == None:
             tweet("Man, what is up with this disc?")
             lnp("Disc didn't present as Audio CD")
             self.eject_disc()
             self.finish_job()
+            return
         if len(self.disc_info.disc_info) == 0:
             tweet("This CD is pretty obscure, you've probably never heard of it")
         elif len(self.disc_info.disc_info) == 1:
@@ -184,8 +185,16 @@ class ExtractJob(object):
             d = random.choice(self.disc_info.disc_info)
             tweet("Ehh, the hell is this? %s?" % (d['DTITLE'],))
         lnp("Extracting disc")
-        abcde_log = open(CDP_LOG,'w')
-        if subprocess.call(EXTRACT,stderr=abcde_log) != 0:
+        p1 = subprocess.Popen(EXTRACT,stderr=subprocess.PIPE,close_fds=True)
+        p2 = subprocess.Popen(['/home/extractor/pipecleaner/pipecleaner','-f',CDP_LOG], stdin=p1.stderr)
+        started = datetime.today()
+        while (datetime.today() - started) < timedelta(hours=2) and p1.poll() == None:
+            time.sleep(1)
+        if p1.poll() == None:
+            p1.terminate()
+        p1.communicate()
+        #p1.stdout.close()
+        if p1.poll() != 0:
             lnp("Extraction failed with error")
             target = os.path.join(RIPPED_FOLDER,"FAIL-%s" % int(time.time()))
             subprocess.call(["mkdir","-p",target])
@@ -218,7 +227,7 @@ class ExtractJob(object):
             trail.append(subdirs[0])
         subprocess.call(['mv',CDP_LOG,p])
         self.disc_info.write(p)
-        if trail[-1].find("temp_sr0") and bp != RIPPED_FOLDER:
+        if trail[-1].find("temp_sr0") != -1 and bp != RIPPED_FOLDER:
             subprocess.call(['mv',p,os.path.join(bp,"FAIL-%s" % int(time.time()))])
         #Rsync the contents of the ripped folder to the remote storage
         if subprocess.call(['rsync','-rv',RIPPED_FOLDER,RSYNC_TARGET]) != 0:
