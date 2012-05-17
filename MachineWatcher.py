@@ -12,6 +12,8 @@ import json
 import twitter
 import keys
 
+from phrases import phrase
+
 JOB_NAME = "extract"
 EXTRACT = ['abcde']
 STATUS_FILE = "/mnt/ptburnjobs/Status/PTStatus.txt"
@@ -180,13 +182,13 @@ class ExtractJob(object):
             tweet("This CD is pretty obscure, you've probably never heard of it")
         elif len(self.disc_info.disc_info) == 1:
             d = self.disc_info.disc_info[0]
-            tweet("Ah yes, %s -- a timeless classic" % (d['DTITLE'],))
+            tweet("Ah yes, %s -- %s" % (d['DTITLE'],phrase()))
         else:
             d = random.choice(self.disc_info.disc_info)
             tweet("Ehh, the hell is this? %s?" % (d['DTITLE'],))
         lnp("Extracting disc")
-        p1 = subprocess.Popen(EXTRACT,stderr=subprocess.PIPE,close_fds=True)
-        p2 = subprocess.Popen(['/home/extractor/pipecleaner/pipecleaner','-f',CDP_LOG], stdin=p1.stderr)
+        p1 = subprocess.Popen(EXTRACT,stderr=subprocess.PIPE,close_fds=True,shell=True)
+        p2 = subprocess.Popen(['/home/extractor/pipecleaner/pipecleaner','-f',CDP_LOG], stdin=p1.stderr,shell=True)
         started = datetime.today()
         while (datetime.today() - started) < timedelta(hours=2) and p1.poll() == None:
             time.sleep(1)
